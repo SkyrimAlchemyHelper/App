@@ -5,7 +5,7 @@ import '@fontsource/roboto/700.css';
 import './App.css';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SettingsProvider } from './Settings';
-import { IngridientEffectsProvider } from './IngridientEffects';
+import { IngredientEffectsProvider } from './IngredientEffects';
 import AppContent from './AppContent';
 import { InventoryProvider } from './Inventory';
 
@@ -13,11 +13,11 @@ export default function App() {
   return (
     <CssBaseline>
       <SettingsProvider>
-        <IngridientEffectsProvider>
+        <IngredientEffectsProvider>
           <InventoryProvider>
             <AppContent />
           </InventoryProvider>
-        </IngridientEffectsProvider>
+        </IngredientEffectsProvider>
       </SettingsProvider>
     </CssBaseline>
   );

@@ -7,20 +7,30 @@ import {
   GridToolbarExport,
   GridToolbarFilterButton,
 } from '@mui/x-data-grid';
-import { Ingridient, useIngridientEffects } from './IngridientEffects';
+import { useMemo } from 'react';
+import { arraySingleSelectOperators } from './arrayFilterOperators';
+import { idFormatter } from './idFormatter';
+import { Effect, Ingredient, useIngredientEffects } from './IngredientEffects';
 import ImportEffectsButton from './ImportEffects';
-import arrayRenderer from './ArrayCellRenderer';
+import { arrayRenderer, arraySingleSelectRenderer } from './ArrayCellRenderer';
 import { getEffectValue } from './effects';
 
-const idFormetter = (v: number) =>
-  v.toString(16).padStart(8, '0').toUpperCase();
+const floatNumberFormatter = Intl.NumberFormat(undefined, {
+  style: 'decimal',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
+});
 
-const columns: readonly GridColDef<Ingridient>[] = [
+const floatFormatter = (v: readonly number[]) => {
+  return v.map((n) => floatNumberFormatter.format(n));
+};
+
+const columns: readonly GridColDef<Ingredient>[] = [
   {
     field: 'id',
     headerName: 'ID',
     type: 'number',
-    valueFormatter: idFormetter,
+    valueFormatter: idFormatter,
     width: 100,
   },
   {
@@ -32,9 +42,13 @@ const columns: readonly GridColDef<Ingridient>[] = [
   {
     field: 'effectName',
     headerName: 'Effect',
-    valueGetter: (_, row) => row.effects.map((e) => e.effect.name),
+    type: 'singleSelect',
     flex: 1,
-    renderCell: arrayRenderer,
+    getOptionValue: ((o: Effect) => o.id) as any,
+    getOptionLabel: ((o: Effect) => o.name) as any,
+    valueGetter: (_, row) => row.effects.map((e) => e.effect),
+    renderCell: arraySingleSelectRenderer,
+    filterOperators: arraySingleSelectOperators,
   },
   {
     field: 'effectDuration',
@@ -49,6 +63,7 @@ const columns: readonly GridColDef<Ingridient>[] = [
     headerName: 'Magnitute',
     type: 'number',
     valueGetter: (_, row) => row.effects.map((e) => e.magnitute),
+    valueFormatter: floatFormatter,
     width: 50,
     renderCell: arrayRenderer,
   },
@@ -78,17 +93,32 @@ function CustomToolbar() {
   );
 }
 
-export default function IngridientGrid() {
-  const { ingridients } = useIngridientEffects();
+export default function IngredientGrid() {
+  const { ingredients, effects } = useIngredientEffects();
+
+  const cols = useMemo(
+    () =>
+      columns.map((column) => {
+        if (column.field === 'effectName') {
+          return {
+            ...column,
+            valueOptions: Array.from(effects.values()),
+          };
+        }
+
+        return column;
+      }),
+    [effects],
+  );
 
   return (
-    <DataGrid<Ingridient>
-      columns={columns}
-      rows={Array.from(ingridients.values())}
+    <DataGrid<Ingredient>
+      columns={cols}
+      rows={Array.from(ingredients.values())}
       rowSelection={false}
       autoHeight
       slots={{ toolbar: CustomToolbar }}
-      getRowHeight={({ model }) => (model as Ingridient).effects.length * 32}
+      getRowHeight={({ model }) => (model as Ingredient).effects.length * 32}
       initialState={{
         sorting: {
           sortModel: [{ field: 'effectValue', sort: 'desc' }],

@@ -1,14 +1,14 @@
 import { ReactNode, createContext, useContext, useMemo, useState } from 'react';
-import { Ingridient, useIngridientEffects } from './IngridientEffects';
+import { Ingredient, useIngredientEffects } from './IngredientEffects';
 
 export type Item = {
-  readonly ingridient: Ingridient;
+  readonly ingredient: Ingredient;
   readonly count: number;
 };
 
 type InventoryContext = {
   inventory: ReadonlyMap<number, Item>;
-  setInventory: (ingridients: ReadonlyMap<number, Item>) => void;
+  setInventory: (ingredients: ReadonlyMap<number, Item>) => void;
 };
 
 const Context = createContext<InventoryContext>({
@@ -17,7 +17,7 @@ const Context = createContext<InventoryContext>({
 });
 
 function loadInventoryFromStorage(
-  ingridients: ReadonlyMap<number, Ingridient>,
+  ingredients: ReadonlyMap<number, Ingredient>,
 ): ReadonlyMap<number, Item> {
   const map = new Map<number, Item>();
   const effectsJson = localStorage.getItem('alchemy-helper-inventory') ?? '[]';
@@ -36,17 +36,17 @@ function loadInventoryFromStorage(
     if (
       !e ||
       typeof e !== 'object' ||
-      !('ingridient' in e) ||
-      typeof e.ingridient !== 'number' ||
+      !('ingredient' in e) ||
+      typeof e.ingredient !== 'number' ||
       !('count' in e) ||
       typeof e.count !== 'number' ||
-      !ingridients.has(e.ingridient)
+      !ingredients.has(e.ingredient)
     ) {
       return;
     }
 
-    map.set(e.ingridient, {
-      ingridient: ingridients.get(e.ingridient)!,
+    map.set(e.ingredient, {
+      ingredient: ingredients.get(e.ingredient)!,
       count: e.count,
     });
   });
@@ -58,7 +58,7 @@ function storeInventoryInStorage(inventory: ReadonlyMap<number, Item>) {
   const list: {}[] = [];
   inventory.forEach((i) => {
     list.push({
-      ingridient: i.ingridient.id,
+      ingredient: i.ingredient.id,
       count: i.count,
     });
   });
@@ -67,10 +67,10 @@ function storeInventoryInStorage(inventory: ReadonlyMap<number, Item>) {
 }
 
 export function InventoryProvider({ children }: { children?: ReactNode }) {
-  const { ingridients } = useIngridientEffects();
+  const { ingredients } = useIngredientEffects();
 
   const [inventory, setInventory] = useState<ReadonlyMap<number, Item>>(() =>
-    loadInventoryFromStorage(ingridients),
+    loadInventoryFromStorage(ingredients),
   );
 
   const value = useMemo<InventoryContext>(() => {

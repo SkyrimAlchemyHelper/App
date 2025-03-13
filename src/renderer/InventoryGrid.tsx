@@ -12,11 +12,11 @@ import { Item, useInventory } from './Inventory';
 
 const columns: readonly GridColDef<Item>[] = [
   {
-    field: 'ingridient.name',
-    headerName: 'Ingridient',
+    field: 'ingredient.name',
+    headerName: 'Ingredient',
     type: 'string',
     flex: 1,
-    valueGetter: (_, row) => row.ingridient.name,
+    valueGetter: (_, row) => row.ingredient.name,
   },
   {
     field: 'count',
@@ -47,7 +47,7 @@ export default function InventoryGrid() {
       rows={Array.from(inventory.values())}
       autoHeight
       rowSelection={false}
-      getRowId={(p) => p.ingridient.id}
+      getRowId={(p) => p.ingredient.id}
       slots={{ toolbar: CustomToolbar }}
     />
   );

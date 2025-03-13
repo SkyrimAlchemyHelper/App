@@ -1,6 +1,15 @@
 import { Box } from '@mui/material';
+import {
+  GridBaseColDef,
+  GridSingleSelectColDef,
+  ValueOptions,
+} from '@mui/x-data-grid/models/colDef/gridColDef';
 
-const arrayRenderer = ({ formattedValue }: { formattedValue?: string[] }) => {
+export const arrayRenderer = ({
+  formattedValue,
+}: {
+  formattedValue?: string[];
+}) => {
   if (!Array.isArray(formattedValue)) {
     return '';
   }
@@ -28,4 +37,21 @@ const arrayRenderer = ({ formattedValue }: { formattedValue?: string[] }) => {
   );
 };
 
-export default arrayRenderer;
+export const arraySingleSelectRenderer: GridBaseColDef['renderCell'] = (
+  params,
+) => {
+  if (!Array.isArray(params.value)) {
+    return '';
+  }
+
+  const colDef = params.colDef as GridSingleSelectColDef;
+  if (colDef.type !== 'singleSelect') {
+    return '';
+  }
+
+  const formattedValue = params.value.map((v) =>
+    colDef.getOptionLabel!(v as ValueOptions),
+  );
+
+  return arrayRenderer({ formattedValue });
+};

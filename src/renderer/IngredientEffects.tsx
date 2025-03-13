@@ -10,32 +10,32 @@ export type Effect = {
   readonly powerEffectsMagnitute: boolean;
 };
 
-export type IngridientEffect = {
+export type IngredientEffect = {
   readonly effect: Effect;
   readonly duration: number;
   readonly magnitute: number;
 };
 
-export type Ingridient = {
+export type Ingredient = {
   readonly id: number;
   readonly name: string;
-  readonly effects: readonly IngridientEffect[];
+  readonly effects: readonly IngredientEffect[];
 };
 
-type IngridientContext = {
+type IngredientContext = {
   effects: ReadonlyMap<number, Effect>;
-  setEffects: (ingridients: ReadonlyMap<number, Effect>) => void;
-  ingridients: ReadonlyMap<number, Ingridient>;
-  setIngridients: (ingridients: ReadonlyMap<number, Ingridient>) => void;
-  effectIngridients: ReadonlyMap<number, readonly Ingridient[]>;
+  setEffects: (ingredients: ReadonlyMap<number, Effect>) => void;
+  ingredients: ReadonlyMap<number, Ingredient>;
+  setIngredients: (ingredients: ReadonlyMap<number, Ingredient>) => void;
+  effectIngredients: ReadonlyMap<number, readonly Ingredient[]>;
 };
 
-const Context = createContext<IngridientContext>({
+const Context = createContext<IngredientContext>({
   effects: new Map(),
   setEffects: () => {},
-  ingridients: new Map(),
-  setIngridients: () => {},
-  effectIngridients: new Map(),
+  ingredients: new Map(),
+  setIngredients: () => {},
+  effectIngredients: new Map(),
 });
 
 function loadEffectsFromStorage(): ReadonlyMap<number, Effect> {
@@ -88,12 +88,12 @@ function loadEffectsFromStorage(): ReadonlyMap<number, Effect> {
   return map;
 }
 
-function loadIngridientsFromStorage(
+function loadIngredientsFromStorage(
   effects: ReadonlyMap<number, Effect>,
-): ReadonlyMap<number, Ingridient> {
-  const map = new Map<number, Ingridient>();
+): ReadonlyMap<number, Ingredient> {
+  const map = new Map<number, Ingredient>();
   const effectsJson =
-    localStorage.getItem('alchemy-helper-ingridients') ?? '[]';
+    localStorage.getItem('alchemy-helper-ingredients') ?? '[]';
   let parsedEffects: unknown;
   try {
     parsedEffects = JSON.parse(effectsJson);
@@ -152,11 +152,11 @@ function storeEffectsInStorage(effects: ReadonlyMap<number, Effect>) {
   );
 }
 
-function storeIngridientsInStorage(
-  ingridients: ReadonlyMap<number, Ingridient>,
+function storeIngredientsInStorage(
+  ingredients: ReadonlyMap<number, Ingredient>,
 ) {
   const list: {}[] = [];
-  ingridients.forEach((i) => {
+  ingredients.forEach((i) => {
     list.push({
       id: i.id,
       name: i.name,
@@ -168,10 +168,10 @@ function storeIngridientsInStorage(
     });
   });
 
-  localStorage.setItem('alchemy-helper-ingridients', JSON.stringify(list));
+  localStorage.setItem('alchemy-helper-ingredients', JSON.stringify(list));
 }
 
-export function IngridientEffectsProvider({
+export function IngredientEffectsProvider({
   children,
 }: {
   children?: ReactNode;
@@ -180,20 +180,20 @@ export function IngridientEffectsProvider({
     loadEffectsFromStorage(),
   );
 
-  const [ingridients, setIngridients] = useState<
-    ReadonlyMap<number, Ingridient>
-  >(() => loadIngridientsFromStorage(effects));
+  const [ingredients, setIngredients] = useState<
+    ReadonlyMap<number, Ingredient>
+  >(() => loadIngredientsFromStorage(effects));
 
-  const value = useMemo<IngridientContext>(() => {
-    const effectIngridients = new Map<number, Ingridient[]>();
-    ingridients.forEach((i) => {
+  const value = useMemo<IngredientContext>(() => {
+    const effectIngredients = new Map<number, Ingredient[]>();
+    ingredients.forEach((i) => {
       i.effects.forEach((e) => {
-        let list: Ingridient[];
-        if (effectIngridients.has(e.effect.id)) {
-          list = effectIngridients.get(e.effect.id)!;
+        let list: Ingredient[];
+        if (effectIngredients.has(e.effect.id)) {
+          list = effectIngredients.get(e.effect.id)!;
         } else {
           list = [];
-          effectIngridients.set(e.effect.id, list);
+          effectIngredients.set(e.effect.id, list);
         }
 
         list.push(i);
@@ -206,18 +206,18 @@ export function IngridientEffectsProvider({
         setEffects(newEffects);
         storeEffectsInStorage(newEffects);
       },
-      ingridients,
-      setIngridients: (newIngridients) => {
-        setIngridients(newIngridients);
-        storeIngridientsInStorage(newIngridients);
+      ingredients,
+      setIngredients: (newIngredients) => {
+        setIngredients(newIngredients);
+        storeIngredientsInStorage(newIngredients);
       },
-      effectIngridients,
+      effectIngredients,
     };
-  }, [ingridients, effects]);
+  }, [ingredients, effects]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
-export function useIngridientEffects(): IngridientContext {
+export function useIngredientEffects(): IngredientContext {
   return useContext(Context);
 }

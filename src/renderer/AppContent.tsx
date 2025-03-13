@@ -1,7 +1,7 @@
 import { Box, Tab, Tabs } from '@mui/material';
 import { ReactNode, useState } from 'react';
 import { SettingsForm } from './Settings';
-import IngridientGrid from './IngridientGrid';
+import IngredientGrid from './IngredientGrid';
 import InventoryGrid from './InventoryGrid';
 import RecipeGrid from './RecipeGrid';
 
@@ -51,7 +51,7 @@ export default function AppContent() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', flex: '0 1 auto' }}>
         <Tabs value={activeTab} onChange={handleChange} aria-label="Navigation">
           <Tab label="Settings" {...a11yProps(0)} />
-          <Tab label="Ingridients" {...a11yProps(1)} />
+          <Tab label="Ingredients" {...a11yProps(1)} />
           <Tab label="Inventory" {...a11yProps(2)} />
           <Tab label="Recipes" {...a11yProps(3)} />
         </Tabs>
@@ -63,7 +63,7 @@ export default function AppContent() {
       )}
       {activeTab !== 1 ? null : (
         <TabPanel index={1}>
-          <IngridientGrid />
+          <IngredientGrid />
         </TabPanel>
       )}
       {activeTab !== 2 ? null : (

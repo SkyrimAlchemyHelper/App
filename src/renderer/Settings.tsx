@@ -9,12 +9,11 @@ import {
 } from 'react';
 
 type StoredSettings = {
-  readonly logsLocation: string;
+  readonly dataLocation: string;
 };
 
 const defaultSettings: StoredSettings = {
-  logsLocation:
-    '%UserProfile%\\Documents\\My Games\\Skyrim Special Edition\\Logs\\Script\\User',
+  dataLocation: '',
 };
 
 const SettingsContext = createContext<{
@@ -48,12 +47,12 @@ export function SettingsProvider({ children }: { children?: ReactNode }) {
       -readonly [P in keyof StoredSettings]?: StoredSettings[P];
     } = {};
     if (
-      'logsLocation' in parsedSettings &&
-      typeof parsedSettings.logsLocation === 'string'
+      'dataLocation' in parsedSettings &&
+      typeof parsedSettings.dataLocation === 'string'
     ) {
-      processedSettings.logsLocation = parsedSettings.logsLocation;
+      processedSettings.dataLocation = parsedSettings.dataLocation;
     } else {
-      processedSettings.logsLocation = defaultSettings.logsLocation;
+      processedSettings.dataLocation = defaultSettings.dataLocation;
     }
 
     return processedSettings as StoredSettings;
@@ -99,31 +98,37 @@ const selectDirectory = (defaultPath: string) =>
 
 export function SettingsForm(): ReactNode {
   const { settings, setSettings } = useSettings();
-  const [logsLocation, setLogsLocation] = useState(settings.logsLocation);
+  const [dataLocation, setDataLocation] = useState(settings.dataLocation);
 
   return (
     <Box
       component="form"
       onSubmit={(e) => {
         e.preventDefault();
-        setSettings({ logsLocation });
+        setSettings({ dataLocation });
       }}
     >
       <TextField
         fullWidth
-        name="logsLocation"
-        label="Logs location"
-        value={logsLocation}
+        name="dataLocation"
+        label="Data location"
+        value={dataLocation || ''}
         onChange={(event: ChangeEvent<HTMLInputElement>) => {
-          setLogsLocation(event.target.value);
+          setDataLocation(event.target.value);
         }}
+        helperText={
+          <>
+            Example C:\Steam\steamapps\common\Skyrim Special
+            Edition\Data\skse\plugins\AlchemyHelper
+          </>
+        }
         InputProps={{
           endAdornment: (
             <Button
               variant="contained"
               onClick={async () => {
                 try {
-                  setLogsLocation(await selectDirectory(logsLocation));
+                  setDataLocation(await selectDirectory(dataLocation));
                 } catch {
                   // Ignore.
                 }

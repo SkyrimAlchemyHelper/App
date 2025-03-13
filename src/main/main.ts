@@ -34,34 +34,13 @@ ipcMain.on('select-directory', async (event, defaultPath) => {
   event.reply('select-directory', result.filePaths[0]);
 });
 
-ipcMain.on('import-file', async (event, filePath) => {
+ipcMain.on('import-file', async (event, dataLocation: string, file: string) => {
   try {
-    const f = await fs.readFile(filePath, { encoding: 'utf8' });
-    const start = f.lastIndexOf('log opened');
-    const end = f.lastIndexOf('Log closed');
+    const f = await fs.readFile(path.join(dataLocation, file), {
+      encoding: 'utf8',
+    });
 
-    if (start === -1 || end === -1) {
-      event.reply('import-file', []);
-      return;
-    }
-
-    const firstLineStart = f.indexOf('\n', start) + 1;
-    const lastLineEnd = f.lastIndexOf('\n', end);
-
-    event.reply(
-      'import-file',
-      f
-        .slice(firstLineStart, lastLineEnd)
-        .split('\n')
-        .map((l) => {
-          const dateEnd = l.lastIndexOf(']');
-          if (dateEnd === -1) {
-            throw new Error('Invalid data in log file');
-          }
-
-          return l.slice(dateEnd + 2);
-        }),
-    );
+    event.reply('import-file', JSON.parse(f));
   } catch (e) {
     console.warn(e);
     event.reply('import-file');

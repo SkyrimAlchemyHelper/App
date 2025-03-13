@@ -8,18 +8,24 @@ import {
   GridToolbarExport,
   GridToolbarFilterButton,
 } from '@mui/x-data-grid';
-import { useMemo } from 'react';
+import { ComponentProps, useMemo } from 'react';
+import { arraySingleSelectOperators } from './arrayFilterOperators';
 import ImportInventoryButton from './importInventory';
 import { Item, useInventory } from './Inventory';
 import ImportEffectsButton from './ImportEffects';
-import { Ingridient, IngridientEffect } from './IngridientEffects';
-import arrayRenderer from './ArrayCellRenderer';
+import {
+  Effect,
+  Ingredient,
+  IngredientEffect,
+  useIngredientEffects,
+} from './IngredientEffects';
+import { arraySingleSelectRenderer } from './ArrayCellRenderer';
 import { getPotionValue } from './effects';
 
 type Recipe = {
   id: string;
-  ingridients: readonly Ingridient[];
-  effects: readonly IngridientEffect[];
+  ingredients: readonly Ingredient[];
+  effects: readonly IngredientEffect[];
   maxPotions: number;
   value: number;
 };
@@ -28,18 +34,23 @@ const columns: readonly GridColDef<Recipe>[] = [
   {
     field: 'effects',
     headerName: 'Effects',
-    type: 'string',
+    type: 'singleSelect',
     flex: 1,
-    valueGetter: (_, row) => row.effects.map((e) => e.effect.name),
-    renderCell: arrayRenderer,
+    getOptionValue: ((o: Effect) => o.id) as any,
+    getOptionLabel: ((o: Effect) => o.name) as any,
+    valueGetter: (_, row) => row.effects.map((e) => e.effect),
+    renderCell: arraySingleSelectRenderer,
+    filterOperators: arraySingleSelectOperators,
   },
   {
-    field: 'ingridients',
-    headerName: 'Ingridients',
-    type: 'string',
+    field: 'ingredients',
+    headerName: 'Ingredients',
+    type: 'singleSelect',
     flex: 1,
-    valueGetter: (_, row) => row.ingridients.map((i) => i.name),
-    renderCell: arrayRenderer,
+    getOptionValue: ((o: Ingredient) => o.id) as any,
+    getOptionLabel: ((o: Ingredient) => o.name) as any,
+    renderCell: arraySingleSelectRenderer,
+    filterOperators: arraySingleSelectOperators,
   },
   {
     field: 'value',
@@ -69,15 +80,15 @@ function CustomToolbar() {
 }
 
 function getCommonEffects(
-  ingridients: readonly Ingridient[],
-): readonly IngridientEffect[] {
+  ingredients: readonly Ingredient[],
+): readonly IngredientEffect[] {
   const counts: Record<number, number> = {};
-  const effects: Record<number, IngridientEffect> = {};
-  const n = ingridients.length;
+  const effects: Record<number, IngredientEffect> = {};
+  const n = ingredients.length;
   for (let i = 0; i < n; i += 1) {
-    const m = ingridients[i].effects.length;
+    const m = ingredients[i].effects.length;
     for (let j = 0; j < m; j += 1) {
-      const effect = ingridients[i].effects[j];
+      const effect = ingredients[i].effects[j];
       const { id } = effect.effect;
       if (
         !(id in effects) ||
@@ -97,7 +108,7 @@ function getCommonEffects(
     }
   }
 
-  const list: IngridientEffect[] = [];
+  const list: IngredientEffect[] = [];
   Object.entries(counts).forEach(([key, value]) => {
     if (value < 2) {
       return;
@@ -109,16 +120,55 @@ function getCommonEffects(
   return list;
 }
 
+function hasUselessIngredients(
+  ingredients: readonly Ingredient[],
+  effects: readonly IngredientEffect[],
+) {
+  const ingredientsLength = ingredients.length;
+  if (ingredientsLength < 3) {
+    return false;
+  }
+  const effectsLength = effects.length;
+
+  const counts: Record<number, Record<number, number>> = {};
+  for (let i = 0; i < ingredientsLength; i += 1) {
+    counts[i] = {};
+    const ingredientEffectsLength = ingredients[i].effects.length;
+    for (let j = 0; j < ingredientEffectsLength; j += 1) {
+      const ingredientEffect = ingredients[i].effects[j];
+      for (let k = 0; k < effectsLength; k += 1) {
+        if (ingredientEffect.effect.id !== effects[k].effect.id) {
+          continue;
+        }
+
+        if (!(ingredientEffect.effect.id in counts[i])) {
+          counts[i][ingredientEffect.effect.id] = 1;
+        } else {
+          counts[i][ingredientEffect.effect.id] += 1;
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < ingredientsLength; i += 1) {
+    if (Object.values(counts[i]).every((count) => count > 2)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function checkRecipe(items: readonly Item[]): Recipe | undefined {
-  const ingridients = items.map((i) => i.ingridient);
-  const effects = getCommonEffects(ingridients);
-  if (effects.length < 1) {
+  const ingredients = items.map((i) => i.ingredient);
+  const effects = getCommonEffects(ingredients);
+  if (effects.length < 1 || hasUselessIngredients(ingredients, effects)) {
     return undefined;
   }
 
   return {
-    id: ingridients.map((i) => i.id).join('-'),
-    ingridients: Array.from(ingridients).sort((a, b) =>
+    id: ingredients.map((i) => i.id).join('-'),
+    ingredients: Array.from(ingredients).sort((a, b) =>
       a.name.localeCompare(b.name),
     ),
     effects,
@@ -127,9 +177,23 @@ function checkRecipe(items: readonly Item[]): Recipe | undefined {
   };
 }
 
-function isRecipeImproved(recipe1: Recipe, recipe2: Recipe) {
-  return recipe2.effects.length > recipe1.effects.length;
-}
+const getRowHeight: ComponentProps<typeof DataGrid<Recipe>>['getRowHeight'] = (
+  p,
+) => {
+  const model = p.model as Recipe;
+
+  return Math.max(model.effects.length, model.ingredients.length) * 32;
+};
+
+const initialState: ComponentProps<typeof DataGrid<Recipe>>['initialState'] = {
+  sorting: {
+    sortModel: [{ field: 'value', sort: 'desc' }],
+  },
+};
+
+const slots: ComponentProps<typeof DataGrid<Recipe>>['slots'] = {
+  toolbar: CustomToolbar,
+};
 
 function generateRecipes(inventory: ReadonlyMap<number, Item>) {
   const recipes: Recipe[] = [];
@@ -144,7 +208,7 @@ function generateRecipes(inventory: ReadonlyMap<number, Item>) {
       }
       for (let k = j + 1; k < n; k += 1) {
         const recipe2 = checkRecipe([items[i], items[j], items[k]]);
-        if (recipe2 && (!recipe1 || isRecipeImproved(recipe1, recipe2))) {
+        if (recipe2) {
           recipes.push(recipe2);
         }
       }
@@ -156,9 +220,27 @@ function generateRecipes(inventory: ReadonlyMap<number, Item>) {
 
 export default function RecipeGrid() {
   const { inventory, setInventory } = useInventory();
+  const { effects, ingredients } = useIngredientEffects();
   const recipes = useMemo(() => generateRecipes(inventory), [inventory]);
-  const columnsWithActiions = useMemo(() => {
-    const cols = Array.from(columns);
+  const columnsWithActions = useMemo(() => {
+    const cols = columns.map((col) => {
+      if (col.field === 'effects') {
+        return {
+          ...col,
+          valueOptions: Array.from(effects.values()),
+        };
+      }
+
+      if (col.field === 'ingredients') {
+        return {
+          ...col,
+          valueOptions: Array.from(ingredients.values()),
+        };
+      }
+
+      return col;
+    });
+
     cols.push({
       type: 'actions',
       field: 'actions',
@@ -167,13 +249,13 @@ export default function RecipeGrid() {
           icon={<>-1</>}
           onClick={() => {
             const newInventory = new Map(inventory);
-            params.row.ingridients.forEach((i) => {
+            params.row.ingredients.forEach((i) => {
               const item = inventory.get(i.id)!;
               if (item.count === 1) {
                 newInventory.delete(i.id);
               } else {
                 newInventory.set(i.id, {
-                  ingridient: item.ingridient,
+                  ingredient: item.ingredient,
                   count: item.count - 1,
                 });
               }
@@ -186,13 +268,13 @@ export default function RecipeGrid() {
           icon={<>-{params.row.maxPotions}</>}
           onClick={() => {
             const newInventory = new Map(inventory);
-            params.row.ingridients.forEach((i) => {
+            params.row.ingredients.forEach((i) => {
               const item = inventory.get(i.id)!;
               if (item.count === params.row.maxPotions) {
                 newInventory.delete(i.id);
               } else {
                 newInventory.set(i.id, {
-                  ingridient: item.ingridient,
+                  ingredient: item.ingredient,
                   count: item.count - params.row.maxPotions,
                 });
               }
@@ -205,25 +287,17 @@ export default function RecipeGrid() {
     });
 
     return cols;
-  }, [inventory, setInventory]);
+  }, [effects, ingredients, inventory, setInventory]);
 
   return (
     <DataGrid<Recipe>
-      columns={columnsWithActiions}
+      columns={columnsWithActions}
       rows={recipes}
-      slots={{ toolbar: CustomToolbar }}
+      slots={slots}
       autoHeight
-      getRowHeight={(p) => {
-        const model = p.model as Recipe;
-
-        return Math.max(model.effects.length, model.ingridients.length) * 32;
-      }}
+      getRowHeight={getRowHeight}
       rowSelection={false}
-      initialState={{
-        sorting: {
-          sortModel: [{ field: 'value', sort: 'desc' }],
-        },
-      }}
+      initialState={initialState}
     />
   );
 }

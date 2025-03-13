@@ -1,130 +1,215 @@
 import { Button } from '@mui/material';
 import PublishIcon from '@mui/icons-material/Publish';
 import { useState } from 'react';
-import { Effect, Ingridient, useIngridientEffects } from './IngridientEffects';
-import { useSettings } from './Settings';
+import { idFormatter } from './idFormatter';
 import {
-  parseBooleanFromLog,
-  parseFloatFromLog,
-  parseIntFromLog,
-} from './ImportParsers';
+  Effect,
+  Ingredient,
+  IngredientEffect,
+  useIngredientEffects,
+} from './IngredientEffects';
+import { useSettings } from './Settings';
 
-function importIngridients(logsLocation: string): Promise<readonly string[]> {
+function importIngredients(dataLocation: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     window.electron.ipcRenderer.once('import-file', (arg) => {
-      if (Array.isArray(arg)) {
+      if (arg) {
         resolve(arg);
       } else {
-        reject(arg);
+        reject();
       }
     });
 
     window.electron.ipcRenderer.sendMessage(
       'import-file',
-      `${logsLocation}\\AlchemyHelperEffects.0.log`,
+      dataLocation,
+      'Effects.json',
     );
   });
 }
 
-type WriteableIngridient = {
-  id: number;
-  name: string;
-  effects: {
-    readonly effect: Effect;
-    readonly duration: number;
-    readonly magnitute: number;
-  }[];
-};
+function parseEffect(
+  row: unknown,
+  effects: Map<number, Effect>,
+  effectNames: Map<string, Effect>,
+): IngredientEffect {
+  if (!row || typeof row !== 'object') {
+    throw new Error();
+  }
 
-function parseIngridients(
-  rawData: readonly string[],
+  if (!('formId' in row) || typeof row.formId !== 'number') {
+    throw new Error();
+  }
+  if (!('baseCost' in row) || typeof row.baseCost !== 'number') {
+    throw new Error();
+  }
+  if (!('duration' in row) || typeof row.duration !== 'number') {
+    throw new Error();
+  }
+  if (!('magnitute' in row) || typeof row.magnitute !== 'number') {
+    throw new Error();
+  }
+  if (!('name' in row) || typeof row.name !== 'string') {
+    throw new Error();
+  }
+  if (
+    !('noDuration' in row) ||
+    (row.noDuration !== 0 && row.noDuration !== 1)
+  ) {
+    throw new Error();
+  }
+  if (
+    !('noMagnitute' in row) ||
+    (row.noMagnitute !== 0 && row.noMagnitute !== 1)
+  ) {
+    throw new Error();
+  }
+  if (
+    !('powerEffectsDuration' in row) ||
+    (row.powerEffectsDuration !== 0 && row.powerEffectsDuration !== 1)
+  ) {
+    throw new Error();
+  }
+  if (
+    !('powerEffectsMagnitute' in row) ||
+    (row.powerEffectsMagnitute !== 0 && row.powerEffectsMagnitute !== 1)
+  ) {
+    throw new Error();
+  }
+
+  const name = row.name.trim();
+  let finalName = name;
+  const existingName: { -readonly [P in keyof Effect]: Effect[P] } | undefined =
+    effectNames.get(name);
+
+  if (existingName && existingName.id !== row.formId) {
+    existingName.name = `${name} (${idFormatter(existingName.id)})`;
+    finalName = `${name} (${idFormatter(row.formId)})`;
+  }
+
+  const existing = effects.get(row.formId);
+  if (!existing) {
+    const effect: Effect = {
+      id: row.formId,
+      name: finalName,
+      baseCost: row.baseCost,
+      withDuration: row.noDuration === 0,
+      withMagnitute: row.noMagnitute === 0,
+      powerEffectsDuration: row.powerEffectsDuration === 1,
+      powerEffectsMagnitute: row.powerEffectsMagnitute === 1,
+    };
+
+    effects.set(row.formId, effect);
+    effectNames.set(name, effect);
+
+    return {
+      duration: row.duration,
+      magnitute: row.magnitute,
+      effect,
+    };
+  }
+
+  if (
+    existing.id !== row.formId ||
+    existing.baseCost !== row.baseCost ||
+    existing.withDuration !== (row.noDuration === 0) ||
+    existing.withMagnitute !== (row.noMagnitute === 0) ||
+    existing.powerEffectsDuration !== (row.powerEffectsDuration === 1) ||
+    existing.powerEffectsMagnitute !== (row.powerEffectsMagnitute === 1)
+  ) {
+    throw new Error();
+  }
+
+  return {
+    duration: row.duration,
+    magnitute: row.magnitute,
+    effect: existing,
+  };
+}
+
+function parseIngredients(
+  rawData: unknown,
   setEffects: (effects: Map<number, Effect>) => void,
-  setIngridients: (ingridients: Map<number, Ingridient>) => void,
+  setIngredients: (ingredients: Map<number, Ingredient>) => void,
 ) {
   const effects = new Map<number, Effect>();
-  const ingridients: Ingridient[] = [];
-  let currentIgridient: WriteableIngridient | undefined;
+  const ingredientNames = new Map<string, Ingredient>();
+  const effectNames = new Map<string, Effect>();
+  const ingredients: Ingredient[] = [];
+  if (!rawData || typeof rawData !== 'object') {
+    throw new Error();
+  }
+  if (!('ingredients' in rawData) || !Array.isArray(rawData.ingredients)) {
+    throw new Error();
+  }
 
-  rawData.forEach((row) => {
-    if (row.startsWith('Ingridient: ')) {
-      const [rawId, ...rest] = row.slice(12).split(';');
-
-      currentIgridient = {
-        id: parseIntFromLog(rawId),
-        name: rest.join(';'),
-        effects: [],
-      };
-
-      ingridients.push(currentIgridient);
-    } else if (row.startsWith('Effect: ')) {
-      if (!currentIgridient) {
-        throw new Error('Invalid data in log file');
-      }
-
-      const [
-        rawId,
-        rawDuration,
-        rawMagnitute,
-        rawBaseCost,
-        rawWithoutDuration,
-        rawWithoutMagnitute,
-        rawPowerEffectDuration,
-        rawPowerEffectsMagnitute,
-        ...rest
-      ] = row.slice(8).split(';');
-
-      const id = parseIntFromLog(rawId);
-      let effect: Effect;
-      if (effects.has(id)) {
-        effect = effects.get(id)!;
-      } else {
-        effect = {
-          id,
-          baseCost: parseFloatFromLog(rawBaseCost),
-          withDuration: !parseBooleanFromLog(rawWithoutDuration),
-          withMagnitute: !parseBooleanFromLog(rawWithoutMagnitute),
-          powerEffectsDuration: parseBooleanFromLog(rawPowerEffectDuration),
-          powerEffectsMagnitute: parseBooleanFromLog(rawPowerEffectsMagnitute),
-          name: rest.join(';'),
-        };
-        effects.set(id, effect);
-      }
-
-      currentIgridient.effects.push({
-        effect,
-        duration: parseIntFromLog(rawDuration),
-        magnitute: parseFloatFromLog(rawMagnitute),
-      });
-    } else {
-      throw new Error('Invalid data in log file');
+  rawData.ingredients.forEach((row: unknown) => {
+    if (!row || typeof row !== 'object') {
+      throw new Error();
     }
+    if (!('formId' in row) || typeof row.formId !== 'number') {
+      throw new Error();
+    }
+    if (!('name' in row) || typeof row.name !== 'string') {
+      throw new Error();
+    }
+    if (!('effects' in row) || !Array.isArray(row.effects)) {
+      throw new Error();
+    }
+
+    const name = row.name.trim();
+    let finalName = name;
+    const existingName:
+      | { -readonly [P in keyof Ingredient]: Ingredient[P] }
+      | undefined = ingredientNames.get(name);
+
+    if (existingName && existingName.id !== row.formId) {
+      existingName.name = `${name} (${idFormatter(existingName.id)})`;
+      finalName = `${name} (${idFormatter(row.formId)})`;
+    }
+
+    const ingredient: Ingredient = {
+      id: row.formId,
+      name: finalName,
+      effects: row.effects.map(
+        (effectRow: unknown): IngredientEffect =>
+          parseEffect(effectRow, effects, effectNames),
+      ),
+    };
+
+    ingredientNames.set(name, ingredient);
+    ingredients.push(ingredient);
   });
 
   setEffects(
     new Map(
       Array.from(effects.values())
-        .sort((a, b) => a.id - b.id)
+        .sort((a, b) => idFormatter(a.id).localeCompare(idFormatter(b.id)))
         .map((e) => [e.id, e]),
     ),
   );
 
-  setIngridients(
-    new Map(ingridients.sort((a, b) => a.id - b.id).map((i) => [i.id, i])),
+  setIngredients(
+    new Map(
+      ingredients
+        .sort((a, b) => idFormatter(a.id).localeCompare(idFormatter(b.id)))
+        .map((i) => [i.id, i]),
+    ),
   );
 }
 
 export default function ImportEffectsButton() {
   const {
-    settings: { logsLocation },
+    settings: { dataLocation },
   } = useSettings();
-  const { setEffects, setIngridients } = useIngridientEffects();
+  const { setEffects, setIngredients } = useIngredientEffects();
   const [loading, setLoading] = useState(false);
 
   const clickHandler = async () => {
     setLoading(true);
     try {
-      const rawData = await importIngridients(logsLocation);
-      parseIngridients(rawData, setEffects, setIngridients);
+      const rawData = await importIngredients(dataLocation);
+      parseIngredients(rawData, setEffects, setIngredients);
     } finally {
       setLoading(false);
     }
@@ -138,7 +223,7 @@ export default function ImportEffectsButton() {
       startIcon={<PublishIcon />}
       onClick={clickHandler}
     >
-      Import ingridient effects
+      Import ingredient effects
     </Button>
   );
 }

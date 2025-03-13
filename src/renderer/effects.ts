@@ -1,6 +1,6 @@
-import { IngridientEffect } from './IngridientEffects';
+import { IngredientEffect } from './IngredientEffects';
 
-export function getEffectValue(effect: IngridientEffect): number {
+export function getEffectValue(effect: IngredientEffect): number {
   const basePower = 6;
   let magnitute = 1;
   if (effect.effect.withMagnitute && effect.magnitute > 0) {
@@ -20,6 +20,6 @@ export function getEffectValue(effect: IngridientEffect): number {
   return Math.floor(effect.effect.baseCost * (magnitute * duration) ** 1.1);
 }
 
-export function getPotionValue(effects: readonly IngridientEffect[]): number {
+export function getPotionValue(effects: readonly IngredientEffect[]): number {
   return effects.reduce((a, e) => a + getEffectValue(e), 0);
 }
