@@ -130,9 +130,8 @@ function hasUselessIngredients(
   }
   const effectsLength = effects.length;
 
-  const counts: Record<number, Record<number, number>> = {};
+  const counts: Record<number, number> = {};
   for (let i = 0; i < ingredientsLength; i += 1) {
-    counts[i] = {};
     const ingredientEffectsLength = ingredients[i].effects.length;
     for (let j = 0; j < ingredientEffectsLength; j += 1) {
       const ingredientEffect = ingredients[i].effects[j];
@@ -141,22 +140,22 @@ function hasUselessIngredients(
           continue;
         }
 
-        if (!(ingredientEffect.effect.id in counts[i])) {
-          counts[i][ingredientEffect.effect.id] = 1;
+        if (!(ingredientEffect.effect.id in counts)) {
+          counts[ingredientEffect.effect.id] = 1;
         } else {
-          counts[i][ingredientEffect.effect.id] += 1;
+          counts[ingredientEffect.effect.id] += 1;
         }
       }
     }
   }
 
-  for (let i = 0; i < ingredientsLength; i += 1) {
-    if (Object.values(counts[i]).every((count) => count > 2)) {
-      return true;
-    }
-  }
+  const result = ingredients.some((ingredient) =>
+    ingredient.effects.every(
+      (effect) => !(effect.effect.id in counts) || counts[effect.effect.id] > 2,
+    ),
+  );
 
-  return false;
+  return result;
 }
 
 function checkRecipe(items: readonly Item[]): Recipe | undefined {

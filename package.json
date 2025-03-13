@@ -1,5 +1,6 @@
 {
   "description": "Alchemy helper",
+  "name": "alchemy-helper",
   "keywords": [],
   "main": "./.erb/dll/main.bundle.dev.js",
   "scripts": {
